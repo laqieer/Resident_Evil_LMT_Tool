@@ -346,6 +346,98 @@ int copyAnimation(char *LMTFilename, int animationID_B, int animationID_A)
 	return 1;
 }
 
+// 复制另一个LMT文件内的动画
+int copyAnimation(char *LMTFilenameB, char *LMTFilenameA, int animationID_B, int animationID_A, bool safe)
+{
+	int magicNumA, magicNumB;
+	short versionA, animationNumA, versionB, animationNumB;
+	uint32_t *animationOffsetA = nullptr;
+	uint32_t *animationOffsetB = nullptr;
+
+	animationOffsetA = readLMT(LMTFilenameA, &magicNumA, &versionA, &animationNumA);
+	animationOffsetB = readLMT(LMTFilenameB, &magicNumB, &versionB, &animationNumB);
+
+	if (animationID_B >= animationNumB)
+	{
+		cout << "LMT file: " << animationID_B << " only has " << magicNumB << " animations." << endl;
+		return -1;
+	}
+
+	if (animationID_A >= animationNumA)
+	{
+		cout << "LMT file: " << animationID_A << " only has " << magicNumA << " animations." << endl;
+		return -1;
+	}
+
+	if (animationOffsetA && animationOffsetB)
+	{
+		ofstream lmtA(LMTFilenameA, ios::ate | ios::in | ios::binary);
+		ifstream lmtB(LMTFilenameB, ios::in | ios::binary);
+
+		// 记录第一个lmt文件原来的大小
+		lmtA.seekp(0, ios::end);
+		streamoff filesizeA = lmtA.tellp();
+
+		// 把第二个lmt文件整个追加到第一个lmt文件末尾
+		jointFiles(lmtA, lmtB);
+
+		// 处理指针
+		if (safe)
+		{
+			vector<Pointer>pointers;
+			scanPointersInLMT(lmtB, pointers);
+			updatePointersInLMT(lmtA, pointers, filesizeA);
+		}
+		else
+		{
+			lmtB.seekg(0, ios::end);
+			streamoff filesizeB = lmtB.tellg();
+
+			// 最小可能地址
+			streamoff addrMin = 8 + 4 * animationNumB;
+			// 最大可能地址
+			streamoff addrMax = filesizeB - 1;
+
+			streamoff p = addrMin;
+			streamoff v = 0;
+			while (p < addrMax)
+			{
+				lmtB.seekg(p, ios::beg);
+				lmtB.read((char *)&v, 4);
+				if (v > p && v < addrMax)
+					//if (v > addrMin && v < addrMax)
+				{
+					v += filesizeA;
+					lmtA.seekp(p + filesizeA, ios::beg);
+					lmtA.write((char *)&v, 4);
+				}
+				p += 4;
+			}
+		}
+
+		// 写动画头偏移表
+		lmtA.seekp(8 + 4 * animationID_A, ios::beg);
+		animationOffsetB[animationID_B] += filesizeA;
+		cout << dec << animationID_A << "\t0x" << hex << lmtA.tellp() << "\t0x" << hex << animationOffsetB[animationID_B] << endl;
+		lmtA.write((char *)&animationOffsetB[animationID_B], 4);
+
+		lmtA.close();
+		lmtB.close();
+
+		delete[] animationOffsetA;
+		delete[] animationOffsetB;
+
+		return 1;
+	}
+
+	if (animationOffsetA)
+		delete[] animationOffsetA;
+	if (animationOffsetB)
+		delete[] animationOffsetB;
+
+	return 0;
+}
+
 // 同一个lmt文件内交换动画
 int swapAnimation(char *LMTFilename, int animationID_B, int animationID_A)
 {
@@ -380,20 +472,80 @@ int clearAnimation(char *LMTFilename, int animationID)
 	return setAnimationOffset(LMTFilename, animationID, 0);
 }
 
+// 从另一个LMT中导入动画
+int importAnimations(char *target, char *source, int animationNum, int animationList[])
+{
+	int magicNumT, magicNumS;
+	short versionT, animationNumT, versionS, animationNumS;
+	uint32_t *animationOffsetT = nullptr;
+	uint32_t *animationOffsetS = nullptr;
+
+	animationOffsetT = readLMT(target, &magicNumT, &versionT, &animationNumT);
+	animationOffsetS = readLMT(source, &magicNumS, &versionS, &animationNumS);
+	
+	ofstream lmtT(target, ios::ate | ios::in | ios::binary);
+	ifstream lmtS(source, ios::in | ios::binary);
+
+	// 记录目标lmt文件原来的大小
+	lmtT.seekp(0, ios::end);
+	streamoff filesizeT = lmtT.tellp();
+
+	// 把源lmt文件整个连接到目标lmt文件末尾
+	jointFiles(lmtT, lmtS);
+
+	vector<Pointer>pointers;
+	scanPointersInLMT(lmtS, pointers);
+	updatePointersInLMT(lmtT, pointers, filesizeT);
+
+	for (int i = 0; i < animationNum; i++)
+	{
+		if (animationList[i] >= animationNumT)
+		{
+			cout << "Fail to import animation " << animationList[i] << ":";
+			cout << target << " only has " << animationNumT << " animations." << endl;
+			continue;
+		}
+		if (animationList[i] >= animationNumS)
+		{
+			cout << "Fail to import animation " << animationList[i] << ":";
+			cout << source << " only has " << animationNumS << " animations." << endl;
+			continue;
+		}
+		if (animationOffsetS[animationList[i]] == 0)
+		{
+			cout << "Fail to import animation " << animationList[i] << ":";
+			cout << "animation " << animationList[i] << " is null in " << source << " animations." << endl;
+			continue;
+		}
+		lmtT.seekp(8 + 4 * animationList[i], ios::beg);
+		animationOffsetS[animationList[i]] += filesizeT;
+		lmtT.write((char *)&animationOffsetS[animationList[i]], 4);
+		cout << "succeed to import animation " << animationList[i] << endl;
+	}
+
+	return 1;
+}
+
 int main(int argc, char *argv[])
 {
 	if (argc == 1)
 	{
-		cout << "Resident Evil LMT File Reader\nby tiki" << endl;
+		cout << "Resident Evil Revelations 2 LMT Tool 1.0\nby tiki" << endl;
+		/*
 		cout << "读取生化危机动作文件(.lmt)结构" << endl;
 		cout << "Usage: [option] LMTFiles > TXTFile" << endl;
 		cout << "option: -r\tread struct info from LMT file" << endl;
-		cout << "\t-m\tmerge the animations in the second LMT file into the first one (does not overwrite existing animations)" << endl;
-		cout << "\t-mo\tmerge the animations in the second LMT file into the first one (overwrite existing animations)" << endl;
-		cout << "\t-ms\tmerge the animations in the second LMT file into the first one (does not overwrite existing animations)(safe mode)" << endl;
-		cout << "\t-mos\tmerge the animations in the second LMT file into the first one (overwrite existing animations)(safe mode)" << endl;
+		cout << "\t-m\tmerge the animations in the second LMT file into the first one (does not overwrite existing animations)." << endl;
+		cout << "\t-mo\tmerge the animations in the second LMT file into the first one (overwrite existing animations)." << endl;
+		cout << "\t-ms\tmerge the animations in the second LMT file into the first one (does not overwrite existing animations)(safe mode)." << endl;
+		cout << "\t-mos\tmerge the animations in the second LMT file into the first one (overwrite existing animations)(safe mode)." << endl;
 		cout << "\t-ca\tcopy animation from B to A by ID in the same LMT file. If only one animation ID is given, remove the animation." << endl;
 		cout << "\t-sa\tswap animation A and B by ID in the same LMT file. If only one animation ID is given, remove the animation." << endl;
+		cout << "\t-ca LMT_A animeID_A LMT_B animeID_B\tcopy animation from B in LMT file B to A in LMT file A." << endl;
+		cout << "\t-cas LMT_A animeID_A LMT_B animeID_B\tcopy animation from B in LMT file B to A in LMT file A (safe mode)." << endl;
+		*/
+		cout << "Usage: --import targetLMT sourceLMT list_of_animations" << endl;
+		cout << "For example:\n\tto import animation 200,201 from pl2400AcA.lmt pl2200AcA.lmt to pl2400AcA.lmt\n\t-- import pl2400AcA.lmt pl2200AcA.lmt 200 201" << endl;
 	}
 	else
 	{
@@ -449,6 +601,7 @@ int main(int argc, char *argv[])
 						{
 							if (strcmp(argv[1], "-ca") == 0) // 在同一个lmt文件内复制动画B到A.如果只指定了一个动画ID，则清除这个动画.
 							{
+								/*
 								if (argc == 4)
 								{
 									clearAnimation(argv[2], atoi(argv[3]));
@@ -463,6 +616,21 @@ int main(int argc, char *argv[])
 									{
 										cout << "Parameters are less or more than required." << endl;
 									}
+								}
+								*/
+								switch (argc)
+								{
+								case 4:
+									clearAnimation(argv[2], atoi(argv[3]));
+									break;
+								case 5:
+									copyAnimation(argv[2], atoi(argv[3]), atoi(argv[4]));
+									break;
+								case 6:
+									copyAnimation(argv[4], argv[2], atoi(argv[5]), atoi(argv[3]), false);
+									break;
+								default:
+									cout << "Parameters are less or more than required." << endl;
 								}
 							} 
 							else
@@ -487,7 +655,41 @@ int main(int argc, char *argv[])
 								} 
 								else
 								{
-									cout << "Unsupported option: " << argv[1] << endl;
+									if (strcmp(argv[1], "-cas") == 0)
+									{
+										switch (argc)
+										{
+										case 4:
+											clearAnimation(argv[2], atoi(argv[3]));
+											break;
+										case 5:
+											copyAnimation(argv[2], atoi(argv[3]), atoi(argv[4]));
+											break;
+										case 6:
+											copyAnimation(argv[4], argv[2], atoi(argv[5]), atoi(argv[3]), true);
+											break;
+										default:
+											cout << "Parameters are less or more than required." << endl;
+										}
+									} 
+									else
+									{
+										if (strcmp(argv[1], "--import") == 0)
+										{
+											int totalNum = argc - 4;
+											int *animationID = new int[totalNum];
+											for (int i = 0; i < totalNum; i++)
+											{
+												animationID[i] = atoi(argv[i + 4]);
+											}
+											importAnimations(argv[2], argv[3], totalNum, animationID);
+											delete[] animationID;
+										} 
+										else
+										{
+											cout << "Unsupported option: " << argv[1] << endl;
+										}
+									}
 								}
 							}
 						}
