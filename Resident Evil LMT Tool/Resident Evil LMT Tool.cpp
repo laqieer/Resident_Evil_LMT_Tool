@@ -51,6 +51,8 @@ int jointFiles(ofstream &fileA, ifstream &fileB)
 	fileB.seekg(0, ios::end);
 	streamoff filesizeB = fileB.tellg();
 	char *buffer = new char[filesizeB];
+	fileB.seekg(0, ios::beg);
+	fileB.read(buffer, filesizeB);
 	fileA.seekp(0, ios::end);
 	fileA.write(buffer, filesizeB);
 	delete[] buffer;
@@ -287,6 +289,97 @@ int mergeLMT(char *LMTFilenameA, char *LMTFilenameB, bool overwite, bool safe)
 	return 0;
 }
 
+// 修改动画头偏移
+int setAnimationOffset(char *LMTFilename, int animationID, streamoff offset)
+{
+	int magicNum;
+	short version, animationNum;
+	uint32_t *animationOffset = nullptr;
+
+	animationOffset = readLMT(LMTFilename, &magicNum, &version, &animationNum);
+
+	if (animationOffset)
+	{
+		if (animationID >= animationNum)
+		{
+			cout << "Only " << animationNum << " animations are found in the lmt file: " << LMTFilename << endl;
+			return 0;
+		} 
+		else
+		{
+			ofstream lmt(LMTFilename, ios::ate | ios::in | ios::binary);
+			lmt.seekp(8 + 4 * animationID, ios::beg);
+			lmt.write((char *)&offset, 4);
+			lmt.close();
+		}
+	}
+
+	delete[] animationOffset;
+
+	return 1;
+}
+
+// 同一个lmt文件内复制动画
+int copyAnimation(char *LMTFilename, int animationID_B, int animationID_A)
+{
+	int magicNum;
+	short version, animationNum;
+	uint32_t *animationOffset = nullptr;
+
+	animationOffset = readLMT(LMTFilename, &magicNum, &version, &animationNum);
+
+	if (animationOffset)
+	{
+		if (animationID_A >= animationNum || animationID_B >= animationNum)
+		{
+			cout << "Only " << animationNum << " animations are found in the lmt file: " << LMTFilename << endl;
+			return 0;
+		}
+		else
+		{
+			setAnimationOffset(LMTFilename, animationID_B, animationOffset[animationID_A]);
+		}
+	}
+
+	delete[] animationOffset;
+
+	return 1;
+}
+
+// 同一个lmt文件内交换动画
+int swapAnimation(char *LMTFilename, int animationID_B, int animationID_A)
+{
+	int magicNum;
+	short version, animationNum;
+	uint32_t *animationOffset = nullptr;
+
+	animationOffset = readLMT(LMTFilename, &magicNum, &version, &animationNum);
+
+	if (animationOffset)
+	{
+		if (animationID_A >= animationNum || animationID_B >= animationNum)
+		{
+			cout << "Only " << animationNum << " animations are found in the lmt file: " << LMTFilename << endl;
+			return 0;
+		}
+		else
+		{
+			setAnimationOffset(LMTFilename, animationID_A, animationOffset[animationID_B]);
+			setAnimationOffset(LMTFilename, animationID_B, animationOffset[animationID_A]);
+		}
+	}
+
+	delete[] animationOffset;
+
+	return 1;
+}
+
+// 清除动画
+int clearAnimation(char *LMTFilename, int animationID)
+{
+	return setAnimationOffset(LMTFilename, animationID, 0);
+}
+
 int main(int argc, char *argv[])
 {
 	if (argc == 1)
@@ -299,6 +392,8 @@ int main(int argc, char *argv[])
 		cout << "\t-mo\tmerge the animations in the second LMT file into the first one (overwrite existing animations)" << endl;
 		cout << "\t-ms\tmerge the animations in the second LMT file into the first one (does not overwrite existing animations)(safe mode)" << endl;
 		cout << "\t-mos\tmerge the animations in the second LMT file into the first one (overwrite existing animations)(safe mode)" << endl;
+		cout << "\t-ca\tcopy animation from B to A by ID in the same LMT file. If only one animation ID is given, remove the animation." << endl;
+		cout << "\t-sa\tswap animation A and B by ID in the same LMT file. If only one animation ID is given, remove the animation." << endl;
 	}
 	else
 	{
@@ -352,7 +447,49 @@ int main(int argc, char *argv[])
 						} 
 						else
 						{
-							cout << "Unsupported option: " << argv[1] << endl;
+							if (strcmp(argv[1], "-ca") == 0) // 在同一个lmt文件内复制动画B到A.如果只指定了一个动画ID，则清除这个动画.
+							{
+								if (argc == 4)
+								{
+									clearAnimation(argv[2], atoi(argv[3]));
+								} 
+								else
+								{
+									if (argc == 5)
+									{
+										copyAnimation(argv[2], atoi(argv[3]), atoi(argv[4]));
+									}
+									else
+									{
+										cout << "Parameters are less or more than required." << endl;
+									}
+								}
+							} 
+							else
+							{
+								if (strcmp(argv[1], "-sa") == 0) // 在同一个lmt文件内交换2个动画.如果只指定了一个动画ID，则清除这个动画.
+								{
+									if (argc == 4)
+									{
+										clearAnimation(argv[2], atoi(argv[3]));
+									}
+									else
+									{
+										if (argc == 5)
+										{
+											swapAnimation(argv[2], atoi(argv[3]), atoi(argv[4]));
+										}
+										else
+										{
+											cout << "Parameters are less or more than required." << endl;
+										}
+									}
+								} 
+								else
+								{
+									cout << "Unsupported option: " << argv[1] << endl;
+								}
+							}
 						}
 					}
 				}
