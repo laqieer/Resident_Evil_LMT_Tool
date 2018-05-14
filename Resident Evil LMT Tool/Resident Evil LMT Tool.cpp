@@ -545,7 +545,7 @@ int main(int argc, char *argv[])
 		cout << "\t-cas LMT_A animeID_A LMT_B animeID_B\tcopy animation from B in LMT file B to A in LMT file A (safe mode)." << endl;
 		*/
 		cout << "Usage: --import targetLMT sourceLMT list_of_animations" << endl;
-		cout << "For example:\n\tto import animation 200,201 from pl2400AcA.lmt pl2200AcA.lmt to pl2400AcA.lmt\n\t--import pl2400AcA.lmt pl2200AcA.lmt 200 201" << endl;
+		cout << "For example:\n\tto import animation 200,201 from pl2200AcA.lmt to pl2400AcA.lmt\n\t--import pl2400AcA.lmt pl2200AcA.lmt 200 201" << endl;
 	}
 	else
 	{
