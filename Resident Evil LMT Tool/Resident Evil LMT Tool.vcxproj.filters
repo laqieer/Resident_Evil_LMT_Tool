@@ -24,12 +24,45 @@
     <ClInclude Include="targetver.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="IniFile.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="arduino_compat.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="Ethernet.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="File.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="IPAddress.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="SD.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CMyINI.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="Resident Evil LMT Tool.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="IniFile.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="File.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="IPAddress.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CMyINI.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

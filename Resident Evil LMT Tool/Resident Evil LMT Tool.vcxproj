@@ -131,8 +131,9 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions);_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
+      <AdditionalOptions>/D_CRT_SECURE_NO_WARNINGS %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -145,10 +146,21 @@
     <Text Include="ReadMe.txt" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="arduino_compat.h" />
+    <ClInclude Include="CMyINI.h" />
+    <ClInclude Include="Ethernet.h" />
+    <ClInclude Include="File.h" />
+    <ClInclude Include="IniFile.h" />
+    <ClInclude Include="IPAddress.h" />
+    <ClInclude Include="SD.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="CMyINI.cpp" />
+    <ClCompile Include="File.cpp" />
+    <ClCompile Include="IniFile.cpp" />
+    <ClCompile Include="IPAddress.cpp" />
     <ClCompile Include="Resident Evil LMT Tool.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
